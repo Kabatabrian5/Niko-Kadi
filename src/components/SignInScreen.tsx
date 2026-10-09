@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -11,12 +11,14 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import { getSupabaseClient } from '../lib/supabase';
 
 type SignInScreenProps = {
   isMuted: boolean;
   onToggleMusic: () => void;
   onContinue: () => void;
   onBackToHub: () => void;
+  onRegister: () => void;
 };
 
 export function SignInScreen({
@@ -24,6 +26,7 @@ export function SignInScreen({
   onToggleMusic,
   onContinue,
   onBackToHub,
+  onRegister,
 }: SignInScreenProps) {
   const [email, setEmail] = useState(() => localStorage.getItem('niko-kadi-email') || '');
   const [password, setPassword] = useState('');
@@ -32,12 +35,7 @@ export function SignInScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    const storedEmail = localStorage.getItem('niko-kadi-email');
-    if (storedEmail) setEmail(storedEmail);
-  }, []);
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus('');
 
@@ -46,27 +44,41 @@ export function SignInScreen({
       return;
     }
 
-    if (password.length < 6) {
-      setStatus('Your password must contain at least 6 characters.');
+    if (password.length < 8) {
+      setStatus('Your password must contain at least 8 characters.');
       return;
     }
 
-    if (rememberMe) {
-      localStorage.setItem('niko-kadi-email', email.trim());
-    } else {
-      localStorage.removeItem('niko-kadi-email');
-    }
-
     setIsSubmitting(true);
-    window.setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) throw error;
+      if (!data.session) throw new Error('Sign-in did not return an active session.');
+
+      if (rememberMe) localStorage.setItem('niko-kadi-email', email.trim());
+      else localStorage.removeItem('niko-kadi-email');
       onContinue();
-    }, 650);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not sign in.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleGoogle = () => {
-    setStatus('Opening the secure Google sign-in flow…');
-    window.setTimeout(onContinue, 650);
+  const handleGoogle = async () => {
+    setStatus('');
+    try {
+      const { error } = await getSupabaseClient().auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) throw error;
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Google sign-in is not available.');
+    }
   };
 
   const handleGuest = () => {
@@ -76,12 +88,8 @@ export function SignInScreen({
 
   const handleForgotPassword = () => {
     setStatus(email.trim()
-      ? `A reset link is ready to send to ${email.trim()}.`
-      : 'Enter your email address first, then request a reset link.');
-  };
-
-  const handleRegister = () => {
-    setStatus('Registration is ready to open in the account creation flow.');
+      ? 'Password recovery is not connected yet.'
+      : 'Enter your email address first.');
   };
 
   return (
@@ -202,7 +210,7 @@ export function SignInScreen({
           {status && <p id="sign-in-status" className="sign-in-status" role="status">{status}</p>}
 
           <p className="sign-in-legal">
-            Don't have a Niko Kadi account? <button type="button" onClick={handleRegister}>Click here to Register</button>
+            Don't have a Niko Kadi account? <button type="button" onClick={onRegister}>Click here to Register</button>
           </p>
         </div>
       </section>

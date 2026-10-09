@@ -3,8 +3,10 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { MainHub } from './components/MainHub';
 import { PracticeTable } from './components/PracticeTable';
 import { SignInScreen } from './components/SignInScreen';
+import { CreateAccountScreen } from './components/CreateAccountScreen';
+import { getSupabaseClient } from './lib/supabase';
 
-type Screen = 'loading' | 'sign-in' | 'hub' | 'practice';
+type Screen = 'loading' | 'sign-in' | 'create-account' | 'hub' | 'practice';
 
 // The application owns the screen transition. The loading state is temporary;
 // sign-in is the next destination, followed by the main hub.
@@ -14,6 +16,19 @@ export default function App() {
   // The soundtrack starts unmuted, while the user can mute it at any time.
   const [isMuted, setIsMuted] = useState(false);
   const [isPlayingPractice, setIsPlayingPractice] = useState(false);
+
+  useEffect(() => {
+    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) return;
+
+    let isMounted = true;
+    void getSupabaseClient().auth.getSession().then(({ data, error }) => {
+      if (isMounted && !error && data.session) setScreen('hub');
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -73,6 +88,14 @@ export default function App() {
           onToggleMusic={toggleMusic}
           onContinue={() => setScreen('hub')}
           onBackToHub={() => setScreen('hub')}
+          onRegister={() => setScreen('create-account')}
+        />
+      ) : screen === 'create-account' ? (
+        <CreateAccountScreen
+          isMuted={isMuted}
+          onToggleMusic={toggleMusic}
+          onBackToSignIn={() => setScreen('sign-in')}
+          onAccountCreated={() => setScreen('hub')}
         />
       ) : isPlayingPractice ? (
         <PracticeTable onExit={() => setIsPlayingPractice(false)} />
