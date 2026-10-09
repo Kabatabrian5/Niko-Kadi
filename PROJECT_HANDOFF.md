@@ -6,7 +6,7 @@ Last updated: 2026-10-09
 
 Niko Kadi is a local-first Kenyan card game built with React 19, TypeScript, and Vite 6. The five-player game rules and engine are documented in `KADI_RULES.md` and implemented in `src/game/kadi.ts`.
 
-Current application routes/screens are loading, sign-in, account creation, the main hub, and offline practice. Supabase Auth integration is implemented in the app, but has not yet been exercised against the live project because local project configuration is not present.
+Current application routes/screens are loading, sign-in, account creation, the main hub, and offline practice. Supabase Auth integration is implemented in the app. Local configuration is present; live signup/email delivery has not yet succeeded.
 
 ## Account and Supabase Design
 
@@ -21,14 +21,14 @@ The current Supabase flow is:
 
 The profile table contains the Auth user ID, names, nickname, phone, gender (`male` or `female`), and timestamps. RLS policies permit authenticated users to select/update only their own profile. The signup trigger is `SECURITY DEFINER`, uses an empty `search_path`, and creates the profile. The schema explicitly grants authenticated profile read/update access; it does not grant anonymous table access.
 
-The Supabase project and `profiles` table have been created. Local `.env.local` contains the project URL and publishable key, is ignored by Git, and allows the local Vite app to initialize Supabase. A read-only query to `public.profiles` reached Supabase and returned PostgreSQL `42501` because it was unauthenticated; this is expected with anonymous table access revoked and does not yet verify an authenticated profile read. The current Vercel deployment contains the updated registration UI but does not have the Vite Supabase variables configured: a live nickname availability probe shows `Supabase is not configured`.
+The Supabase project and `profiles` table have been created. Local `.env.local` contains the project URL and publishable key, is ignored by Git, and allows the local Vite app to initialize Supabase. A read-only query to `public.profiles` reached Supabase and returned PostgreSQL `42501` because it was unauthenticated; this is expected with anonymous table access revoked and does not yet verify an authenticated profile read. The current Vercel deployment contains the updated registration UI but still lacks the Vite Supabase variables at runtime. After the user reported adding the Vercel variables and redeploying, a live nickname probe continued to show `Supabase is not configured`; no signup or email was sent. Verify the variables were added to the Vercel project that owns `niko-kadi-xi.vercel.app` and that the new deployment is Active.
 
 On 2026-10-09, the user confirmed that the Supabase Email sign-in provider and email confirmation are enabled. Signup delivery and code verification are not yet tested. The user cannot create a Google App Password for their account, so Gmail SMTP is unavailable for now.
 
 ## Supabase Setup Still Needed
 
 - `.env.local` is configured locally with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; keep it ignored and never print or commit its contents.
-- Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to Vercel Project Settings → Environment Variables for Preview and Production, then redeploy. Local `.env.local` is intentionally ignored and does not configure the hosted deployment.
+- Verify `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are configured in Vercel Project Settings → Environment Variables for the project whose domain is `niko-kadi-xi.vercel.app`, for Preview and Production, then redeploy and confirm the new deployment is Active. Local `.env.local` is intentionally ignored and does not configure the hosted deployment.
 - The gender/nickname migration has been applied: a live `is_nickname_available` call returned a boolean successfully. Gender is limited to Male/Female, and the database enforces case-insensitive nickname uniqueness.
 - Update the Supabase **Confirm signup** email template to include `{{ .Token }}`; the app verifies the six-digit signup code with `auth.verifyOtp({ type: 'signup' })`.
 - Configure SMTP before sending signup emails to people outside the Supabase organization. The built-in Supabase sender is best-effort, currently limited to team addresses and a low hourly rate limit that can change.
