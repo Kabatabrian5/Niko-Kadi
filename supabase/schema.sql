@@ -5,11 +5,33 @@ create table public.profiles (
   nickname text not null,
   phone text not null,
   gender text not null check (
-    gender in ('woman', 'man', 'non-binary', 'prefer-not-to-say')
+    gender in ('male', 'female')
   ),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create unique index profiles_nickname_unique_ci
+  on public.profiles (lower(btrim(nickname)));
+
+create function public.is_nickname_available(p_nickname text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select pg_catalog.btrim(p_nickname) <> ''
+    and not exists (
+      select 1
+      from public.profiles as profile
+      where pg_catalog.lower(pg_catalog.btrim(profile.nickname)) =
+        pg_catalog.lower(pg_catalog.btrim(p_nickname))
+    );
+$function$;
+
+revoke all on function public.is_nickname_available(text) from public, anon, authenticated;
+grant execute on function public.is_nickname_available(text) to anon, authenticated;
 
 alter table public.profiles enable row level security;
 

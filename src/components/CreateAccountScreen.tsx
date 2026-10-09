@@ -33,6 +33,7 @@ export function CreateAccountScreen({
   const [firstName, setFirstName] = useState('');
   const [secondName, setSecondName] = useState('');
   const [nickname, setNickname] = useState('');
+  const [nicknameAvailability, setNicknameAvailability] = useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -66,6 +67,28 @@ export function CreateAccountScreen({
   );
   const canCreateAccount = hasCompleteProfile && emailVerified;
 
+  const checkNicknameAvailability = async (candidate = nickname) => {
+    const normalizedNickname = candidate.trim();
+    if (!normalizedNickname) return false;
+
+    setNicknameAvailability('checking');
+    try {
+      const { data, error } = await getSupabaseClient().rpc('is_nickname_available', {
+        p_nickname: normalizedNickname,
+      });
+      if (error) throw error;
+
+      const isAvailable = data === true;
+      setNicknameAvailability(isAvailable ? 'available' : 'taken');
+      if (!isAvailable) setStatus('That nickname is already taken. Choose another.');
+      return isAvailable;
+    } catch (error) {
+      setNicknameAvailability('error');
+      setStatus(error instanceof Error ? error.message : 'Could not check nickname availability.');
+      return false;
+    }
+  };
+
   const handleEmailChange = (value: string) => {
     setEmail(value);
     setVerificationRequested(false);
@@ -83,6 +106,8 @@ export function CreateAccountScreen({
     setIsSendingVerification(true);
     setStatus('');
     try {
+      if (!(await checkNicknameAvailability())) return;
+
       const supabase = getSupabaseClient();
       if (verificationRequested) {
         const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
@@ -251,7 +276,12 @@ export function CreateAccountScreen({
               <span className="sign-in-input-wrap">
                 <input
                   value={nickname}
-                  onChange={(event) => setNickname(event.target.value)}
+                  onChange={(event) => {
+                    setNickname(event.target.value);
+                    setNicknameAvailability('idle');
+                    setStatus('');
+                  }}
+                  onBlur={() => void checkNicknameAvailability()}
                   placeholder="Choose a nickname"
                   autoComplete="nickname"
                   disabled={isProfileLocked}
@@ -259,6 +289,15 @@ export function CreateAccountScreen({
                 />
               </span>
             </label>
+            <p
+              className={`create-account-nickname-status create-account-nickname-status--${nicknameAvailability}`}
+              aria-live="polite"
+            >
+              {nicknameAvailability === 'checking' && 'Checking nickname…'}
+              {nicknameAvailability === 'available' && 'Nickname is available'}
+              {nicknameAvailability === 'taken' && 'Nickname is already taken'}
+              {nicknameAvailability === 'error' && 'Could not check nickname right now'}
+            </p>
 
             <div className="create-account-email-row">
               <label className="create-account-field">
@@ -281,7 +320,7 @@ export function CreateAccountScreen({
                 className="create-account-verify"
                 type="button"
                 onClick={handleVerifyEmail}
-                disabled={!hasCompleteProfile || emailVerified || isSendingVerification}
+                disabled={!hasCompleteProfile || emailVerified || isSendingVerification || nicknameAvailability === 'checking'}
               >
                 {emailVerified ? <CheckCircle2 size={17} /> : <Mail size={17} />}
                 {emailVerified ? 'Verified' : isSendingVerification ? 'Sending…' : verificationRequested ? 'Resend code' : 'Verify email'}
@@ -417,10 +456,8 @@ export function CreateAccountScreen({
                   required
                 >
                   <option value="" disabled>Select gender</option>
-                  <option value="woman">Woman</option>
-                  <option value="man">Man</option>
-                  <option value="non-binary">Non-binary</option>
-                  <option value="prefer-not-to-say">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
                 </select>
               </span>
             </label>

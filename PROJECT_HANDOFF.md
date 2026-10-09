@@ -19,7 +19,7 @@ The current Supabase flow is:
 3. The SQL trigger in `supabase/schema.sql` creates the profile row from the signup metadata when the Auth user is inserted. The final Create Account action verifies the active session and reads the signed-in player's profile before entering the hub.
 4. Sign-in uses `auth.signInWithPassword`. A valid Supabase session is restored on app startup. Google sign-in calls Supabase OAuth and requires Google provider configuration in Supabase.
 
-The profile table contains the Auth user ID, names, nickname, phone, gender, and timestamps. RLS policies permit authenticated users to select/update only their own profile. The signup trigger is `SECURITY DEFINER`, uses an empty `search_path`, and creates the profile. The schema explicitly grants authenticated profile read/update access; it does not grant anonymous table access.
+The profile table contains the Auth user ID, names, nickname, phone, gender (`male` or `female`), and timestamps. RLS policies permit authenticated users to select/update only their own profile. The signup trigger is `SECURITY DEFINER`, uses an empty `search_path`, and creates the profile. The schema explicitly grants authenticated profile read/update access; it does not grant anonymous table access.
 
 The Supabase project and `profiles` table have been created. `.env.local` now contains the project URL and publishable key and is ignored by Git. Vite was restarted to load the configuration. A read-only query to `public.profiles` reached Supabase and returned PostgreSQL `42501` because it was unauthenticated; this is expected with anonymous table access revoked and does not yet verify an authenticated profile read.
 
@@ -28,6 +28,7 @@ On 2026-10-09, the user confirmed that the Supabase Email sign-in provider and e
 ## Supabase Setup Still Needed
 
 - `.env.local` is configured locally with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; keep it ignored and never print or commit its contents.
+- Before testing signup, run `supabase/migrations/20261009_nickname_gender.sql` once in the Supabase SQL Editor. It changes gender values to Male/Female, adds a case-insensitive unique nickname index, and creates the `is_nickname_available` RPC used by the form. The migration aborts without changing data if unsupported existing gender values or duplicate nicknames need review.
 - Update the Supabase **Confirm signup** email template to include `{{ .Token }}`; the app verifies the six-digit signup code with `auth.verifyOtp({ type: 'signup' })`.
 - Configure SMTP before sending signup emails to people outside the Supabase organization. The built-in Supabase sender is best-effort, currently limited to team addresses and a low hourly rate limit that can change.
 - Add the local development URL `http://127.0.0.1:5173` to the allowed redirect URLs/site settings.
@@ -54,7 +55,8 @@ The account-creation UI concept is a visual reference, not a flattened page. Mos
 
 ## Current Integration Boundaries
 
-- Email OTP and password Auth calls are implemented and the client can reach the configured Supabase project. A real signup, OTP delivery/confirmation, trigger-created profile read, and password sign-in still need to be tested.
+- Email OTP and password Auth calls are implemented and the client can reach the configured Supabase project. A real signup, SMTP delivery/OTP confirmation, migration application, trigger-created profile read, and password sign-in still need to be tested.
+- Nickname availability is checked through a boolean RPC; the database's lowercased/trimmed unique index is authoritative against simultaneous signups. The current UI gender values are `male` and `female`.
 - No Google client credentials are stored in the repository.
 - Password recovery is not yet connected to Supabase.
 - No account/profile values are written to browser storage; Supabase Auth manages the session and the database stores the profile.
@@ -78,6 +80,6 @@ Remote: `https://github.com/Kabatabrian5/Niko-Kadi.git`
 
 Branch: `main`
 
-Latest pushed commit before recording the no-paid-domain SMTP option: `d280f1c` (`Document Supabase email provider setup`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
+Latest pushed commit before applying the nickname/gender implementation: `e8d1f61` (`Document Gmail SMTP option without custom domain`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
 
 The user wants each completed milestone documented and pushed to GitHub. Before each push, preserve user changes, run the relevant validation commands, update this handoff, and report the commit and any live-service blockers. Do not commit local credentials.
