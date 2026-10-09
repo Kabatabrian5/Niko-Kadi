@@ -23,14 +23,15 @@ The profile table contains the Auth user ID, names, nickname, phone, gender (`ma
 
 The Supabase project and `profiles` table have been created. `.env.local` now contains the project URL and publishable key and is ignored by Git. Vite was restarted to load the configuration. A read-only query to `public.profiles` reached Supabase and returned PostgreSQL `42501` because it was unauthenticated; this is expected with anonymous table access revoked and does not yet verify an authenticated profile read.
 
-On 2026-10-09, the user confirmed that the Supabase Email sign-in provider and email confirmation are enabled. This dashboard setting is user-confirmed; signup delivery and code verification are not yet tested.
+On 2026-10-09, the user confirmed that the Supabase Email sign-in provider and email confirmation are enabled. Signup delivery and code verification are not yet tested. The user cannot create a Google App Password for their account, so Gmail SMTP is unavailable for now.
 
 ## Supabase Setup Still Needed
 
 - `.env.local` is configured locally with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; keep it ignored and never print or commit its contents.
-- Before testing signup, run `supabase/migrations/20261009_nickname_gender.sql` once in the Supabase SQL Editor. It changes gender values to Male/Female, adds a case-insensitive unique nickname index, and creates the `is_nickname_available` RPC used by the form. The migration aborts without changing data if unsupported existing gender values or duplicate nicknames need review.
+- The gender/nickname migration has been applied: a live `is_nickname_available` call returned a boolean successfully. Gender is limited to Male/Female, and the database enforces case-insensitive nickname uniqueness.
 - Update the Supabase **Confirm signup** email template to include `{{ .Token }}`; the app verifies the six-digit signup code with `auth.verifyOtp({ type: 'signup' })`.
 - Configure SMTP before sending signup emails to people outside the Supabase organization. The built-in Supabase sender is best-effort, currently limited to team addresses and a low hourly rate limit that can change.
+- For the first test, use the same email address that belongs to the Supabase organization; do not expect built-in SMTP to deliver to arbitrary client addresses.
 - Add the local development URL `http://127.0.0.1:5173` to the allowed redirect URLs/site settings.
 - Enable the Google provider and configure its OAuth credentials/redirects before Google sign-in can work.
 - Run a real signup and verify that the email arrives, OTP succeeds, the trigger inserts the profile, and RLS permits reading that row.
@@ -41,7 +42,7 @@ Never commit `.env.local` or use a `service_role` key in the browser. The client
 
 The free `*.vercel.app` hostname is not a domain the project controls for sender DNS verification, but a paid domain is not required for an early, low-volume test. Gmail SMTP can send as the account's own `@gmail.com` address to other recipients, subject to Google's account restrictions and sending limits.
 
-For Gmail SMTP, enable Google 2-Step Verification and create an App Password. Configure Supabase Custom SMTP with host `smtp.gmail.com`, port `465` (SSL) or `587` (TLS), the full Gmail address as username and sender address, the App Password as the SMTP password, and `Niko Kadi` as sender name. Put the App Password only in Supabase SMTP settings, never in `.env.local`, source code, or Git. App Password availability can be restricted on managed Workspace or Advanced Protection accounts.
+For Gmail SMTP, enable Google 2-Step Verification and create an App Password. Configure Supabase Custom SMTP with host `smtp.gmail.com`, port `465` (SSL) or `587` (TLS), the full Gmail address as username and sender address, the App Password as the SMTP password, and `Niko Kadi` as sender name. Put the App Password only in Supabase SMTP settings, never in `.env.local`, source code, or Git. App Password availability can be restricted on managed Workspace or Advanced Protection accounts. The user cannot create an App Password for their current Google account, so this option is unavailable for now.
 
 This is suitable for setup/testing or a small pilot, not dependable high-volume transactional delivery. For production scale, use a transactional email provider with a verified domain. Supabase's default sender is limited to organization members and low volume, so it cannot serve general public signup by itself.
 
@@ -55,8 +56,8 @@ The account-creation UI concept is a visual reference, not a flattened page. Mos
 
 ## Current Integration Boundaries
 
-- Email OTP and password Auth calls are implemented and the client can reach the configured Supabase project. A real signup, SMTP delivery/OTP confirmation, migration application, trigger-created profile read, and password sign-in still need to be tested.
-- Nickname availability is checked through a boolean RPC; the database's lowercased/trimmed unique index is authoritative against simultaneous signups. The current UI gender values are `male` and `female`.
+- Email OTP and password Auth calls are implemented; the browser constructs the configured Supabase client and reaches the project. A real signup, SMTP delivery/OTP confirmation, trigger-created profile read, and password sign-in still need to be tested.
+- Nickname availability is checked through a working boolean RPC; the database's lowercased/trimmed unique index is authoritative against simultaneous signups. The current UI gender values are `male` and `female`.
 - No Google client credentials are stored in the repository.
 - Password recovery is not yet connected to Supabase.
 - No account/profile values are written to browser storage; Supabase Auth manages the session and the database stores the profile.
@@ -80,6 +81,6 @@ Remote: `https://github.com/Kabatabrian5/Niko-Kadi.git`
 
 Branch: `main`
 
-Latest pushed commit before applying the nickname/gender implementation: `e8d1f61` (`Document Gmail SMTP option without custom domain`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
+Latest pushed commit before recording this signup-test preflight: `65670c6` (`Use male female and enforce unique nicknames`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
 
 The user wants each completed milestone documented and pushed to GitHub. Before each push, preserve user changes, run the relevant validation commands, update this handoff, and report the commit and any live-service blockers. Do not commit local credentials.
