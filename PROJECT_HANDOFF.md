@@ -21,13 +21,14 @@ The current Supabase flow is:
 
 The profile table contains the Auth user ID, names, nickname, phone, gender (`male` or `female`), and timestamps. RLS policies permit authenticated users to select/update only their own profile. The signup trigger is `SECURITY DEFINER`, uses an empty `search_path`, and creates the profile. The schema explicitly grants authenticated profile read/update access; it does not grant anonymous table access.
 
-The Supabase project and `profiles` table have been created. `.env.local` now contains the project URL and publishable key and is ignored by Git. Vite was restarted to load the configuration. A read-only query to `public.profiles` reached Supabase and returned PostgreSQL `42501` because it was unauthenticated; this is expected with anonymous table access revoked and does not yet verify an authenticated profile read.
+The Supabase project and `profiles` table have been created. Local `.env.local` contains the project URL and publishable key, is ignored by Git, and allows the local Vite app to initialize Supabase. A read-only query to `public.profiles` reached Supabase and returned PostgreSQL `42501` because it was unauthenticated; this is expected with anonymous table access revoked and does not yet verify an authenticated profile read. The current Vercel deployment contains the updated registration UI but does not have the Vite Supabase variables configured: a live nickname availability probe shows `Supabase is not configured`.
 
 On 2026-10-09, the user confirmed that the Supabase Email sign-in provider and email confirmation are enabled. Signup delivery and code verification are not yet tested. The user cannot create a Google App Password for their account, so Gmail SMTP is unavailable for now.
 
 ## Supabase Setup Still Needed
 
 - `.env.local` is configured locally with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; keep it ignored and never print or commit its contents.
+- Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to Vercel Project Settings → Environment Variables for Preview and Production, then redeploy. Local `.env.local` is intentionally ignored and does not configure the hosted deployment.
 - The gender/nickname migration has been applied: a live `is_nickname_available` call returned a boolean successfully. Gender is limited to Male/Female, and the database enforces case-insensitive nickname uniqueness.
 - Update the Supabase **Confirm signup** email template to include `{{ .Token }}`; the app verifies the six-digit signup code with `auth.verifyOtp({ type: 'signup' })`.
 - Configure SMTP before sending signup emails to people outside the Supabase organization. The built-in Supabase sender is best-effort, currently limited to team addresses and a low hourly rate limit that can change.
@@ -56,7 +57,7 @@ The account-creation UI concept is a visual reference, not a flattened page. Mos
 
 ## Current Integration Boundaries
 
-- Email OTP and password Auth calls are implemented; the browser constructs the configured Supabase client and reaches the project. A real signup, SMTP delivery/OTP confirmation, trigger-created profile read, and password sign-in still need to be tested.
+- Local email OTP and password Auth calls are implemented, and the local browser constructs the configured Supabase client. The hosted Vercel deployment still lacks the two Vite variables. A real signup, SMTP delivery/OTP confirmation, trigger-created profile read, and password sign-in still need to be tested.
 - Nickname availability is checked through a working boolean RPC; the database's lowercased/trimmed unique index is authoritative against simultaneous signups. The current UI gender values are `male` and `female`.
 - No Google client credentials are stored in the repository.
 - Password recovery is not yet connected to Supabase.
@@ -81,6 +82,6 @@ Remote: `https://github.com/Kabatabrian5/Niko-Kadi.git`
 
 Branch: `main`
 
-Latest pushed commit before recording this signup-test preflight: `65670c6` (`Use male female and enforce unique nicknames`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
+Latest pushed commit before recording the Vercel environment-variable finding: `a8ea8d8` (`Document Supabase signup test preflight`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
 
 The user wants each completed milestone documented and pushed to GitHub. Before each push, preserve user changes, run the relevant validation commands, update this handoff, and report the commit and any live-service blockers. Do not commit local credentials.
