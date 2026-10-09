@@ -21,11 +21,11 @@ The current Supabase flow is:
 
 The profile table contains the Auth user ID, names, nickname, phone, gender, and timestamps. RLS policies permit authenticated users to select/update only their own profile. The signup trigger is `SECURITY DEFINER`, uses an empty `search_path`, and creates the profile. The schema explicitly grants authenticated profile read/update access; it does not grant anonymous table access.
 
-The user reported that the Supabase project and `profiles` table have been created. The app has not yet verified the schema, OTP email delivery, trigger, RLS, or sign-in against that live project.
+The Supabase project and `profiles` table have been created. `.env.local` now contains the project URL and publishable key and is ignored by Git. Vite was restarted to load the configuration. A read-only query to `public.profiles` reached Supabase and returned PostgreSQL `42501` because it was unauthenticated; this is expected with anonymous table access revoked and does not yet verify an authenticated profile read.
 
 ## Supabase Setup Still Needed
 
-- Create `C:\Projects\niko-kadi\.env.local` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, copied from the Supabase project settings. `.env.local` is gitignored. Restart Vite after adding it.
+- `.env.local` is configured locally with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; keep it ignored and never print or commit its contents.
 - Supabase Auth email signup confirmation must be enabled. Since the app asks for a code, the Confirm signup email template must include `{{ .Token }}`.
 - Add the local development URL `http://127.0.0.1:5173` to the allowed redirect URLs/site settings.
 - Enable the Google provider and configure its OAuth credentials/redirects before Google sign-in can work.
@@ -43,11 +43,11 @@ The account-creation UI concept is a visual reference, not a flattened page. Mos
 
 ## Current Integration Boundaries
 
-- Email OTP and password Auth calls are implemented but require `.env.local` and correct Supabase email settings before they can be verified live.
+- Email OTP and password Auth calls are implemented and the client can reach the configured Supabase project. A real signup, OTP delivery/confirmation, trigger-created profile read, and password sign-in still need to be tested.
 - No Google client credentials are stored in the repository.
 - Password recovery is not yet connected to Supabase.
 - No account/profile values are written to browser storage; Supabase Auth manages the session and the database stores the profile.
-- Account setup has not been deployed or pushed to GitHub since the initial commit; current files are local changes.
+- Account/Auth integration and the initial visual handoff were pushed in commit `ed3f116`. Local Supabase credentials remain uncommitted.
 
 ## Validation Commands
 
@@ -59,7 +59,7 @@ npm run test
 npm run build
 ```
 
-Last recorded result before live Supabase credentials were available: lint passed, all 11 game tests passed, and the Vite production build passed. Production dependency audit reported zero vulnerabilities. Live Auth behavior remains unverified until the Supabase local configuration and email template are set.
+Last recorded code validation after the Auth integration: lint passed, all 11 game tests passed, and the Vite production build passed. Production dependency audit reported zero vulnerabilities. The unauthenticated profiles query returned the expected permission denial; real Auth/signup behavior remains unverified.
 
 ## GitHub and Working Agreement
 
@@ -67,6 +67,6 @@ Remote: `https://github.com/Kabatabrian5/Niko-Kadi.git`
 
 Branch: `main`
 
-Last pushed commit before the current registration/Supabase work: `c8f09a6` (`Initial Niko Kadi app`). The current registration, Supabase, package, schema, and asset changes are not yet pushed.
+Latest pushed commit recorded before this connection-status documentation update: `ed3f116` (`Wire Supabase auth and document setup`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
 
 The user wants each completed milestone documented and pushed to GitHub. Before each push, preserve user changes, run the relevant validation commands, update this handoff, and report the commit and any live-service blockers. Do not commit local credentials.
