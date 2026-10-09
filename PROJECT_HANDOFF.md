@@ -29,11 +29,20 @@ On 2026-10-09, the user confirmed that the Supabase Email sign-in provider and e
 
 - `.env.local` is configured locally with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; keep it ignored and never print or commit its contents.
 - Update the Supabase **Confirm signup** email template to include `{{ .Token }}`; the app verifies the six-digit signup code with `auth.verifyOtp({ type: 'signup' })`.
+- Configure SMTP before sending signup emails to people outside the Supabase organization. The built-in Supabase sender is best-effort, currently limited to team addresses and a low hourly rate limit that can change.
 - Add the local development URL `http://127.0.0.1:5173` to the allowed redirect URLs/site settings.
 - Enable the Google provider and configure its OAuth credentials/redirects before Google sign-in can work.
 - Run a real signup and verify that the email arrives, OTP succeeds, the trigger inserts the profile, and RLS permits reading that row.
 
 Never commit `.env.local` or use a `service_role` key in the browser. The client uses only the publishable key; access control depends on Auth and RLS.
+
+### Email Delivery Without a Paid Domain
+
+The free `*.vercel.app` hostname is not a domain the project controls for sender DNS verification, but a paid domain is not required for an early, low-volume test. Gmail SMTP can send as the account's own `@gmail.com` address to other recipients, subject to Google's account restrictions and sending limits.
+
+For Gmail SMTP, enable Google 2-Step Verification and create an App Password. Configure Supabase Custom SMTP with host `smtp.gmail.com`, port `465` (SSL) or `587` (TLS), the full Gmail address as username and sender address, the App Password as the SMTP password, and `Niko Kadi` as sender name. Put the App Password only in Supabase SMTP settings, never in `.env.local`, source code, or Git. App Password availability can be restricted on managed Workspace or Advanced Protection accounts.
+
+This is suitable for setup/testing or a small pilot, not dependable high-volume transactional delivery. For production scale, use a transactional email provider with a verified domain. Supabase's default sender is limited to organization members and low volume, so it cannot serve general public signup by itself.
 
 ## Google Flow Visual Generation
 
@@ -69,6 +78,6 @@ Remote: `https://github.com/Kabatabrian5/Niko-Kadi.git`
 
 Branch: `main`
 
-Latest pushed commit before recording the Email provider setting: `00090db` (`Document Supabase connection status`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
+Latest pushed commit before recording the no-paid-domain SMTP option: `d280f1c` (`Document Supabase email provider setup`). Registration, Supabase client, package, schema, and visual assets are on GitHub. Do not push `.env.local` or other credentials.
 
 The user wants each completed milestone documented and pushed to GitHub. Before each push, preserve user changes, run the relevant validation commands, update this handoff, and report the commit and any live-service blockers. Do not commit local credentials.
