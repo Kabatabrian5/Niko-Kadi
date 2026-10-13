@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Bot,
+  Coins,
   Crown,
   Gamepad2,
   Globe2,
@@ -15,6 +16,7 @@ import {
   Wifi,
   X,
 } from 'lucide-react';
+import { WalletModal } from './WalletModal';
 
 // The hub is the main navigation surface. It receives the authentication state
 // from the app and keeps all mode choices in one place for easy future routing.
@@ -26,6 +28,7 @@ type MainHubProps = {
 
 export function MainHub({ isMuted, onToggleMusic, onGuestPlay }: MainHubProps) {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [selectedMode, setSelectedMode] = useState<'online' | 'practice' | null>(
     null,
   );
@@ -70,6 +73,9 @@ export function MainHub({ isMuted, onToggleMusic, onGuestPlay }: MainHubProps) {
               <small>1,240 points</small>
             </span>
             <Crown size={16} aria-hidden="true" />
+          </button>
+          <button className="icon-button" type="button" aria-label="Open wallet" onClick={() => setIsWalletOpen(true)}>
+            <Coins size={20} aria-hidden="true" />
           </button>
           <button className="icon-button" type="button" aria-label="Open settings">
             <Settings size={20} aria-hidden="true" />
@@ -197,6 +203,7 @@ export function MainHub({ isMuted, onToggleMusic, onGuestPlay }: MainHubProps) {
       )}
 
       {isAuthOpen && <AuthModal onClose={() => setIsAuthOpen(false)} />}
+      {isWalletOpen && <WalletModal onClose={() => setIsWalletOpen(false)} />}
     </main>
   );
 }
