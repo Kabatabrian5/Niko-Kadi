@@ -12,6 +12,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { getSupabaseClient } from '../lib/supabase';
+import { friendlyAuthError } from '../lib/authMessages';
 
 type SignInScreenProps = {
   isMuted: boolean;
@@ -39,7 +40,10 @@ export function SignInScreen({
     event.preventDefault();
     setStatus('');
 
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+    // Emails are case-insensitive; store and send them in one consistent form.
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
       setStatus('Enter a valid email address to continue.');
       return;
     }
@@ -52,17 +56,17 @@ export function SignInScreen({
     setIsSubmitting(true);
     try {
       const { data, error } = await getSupabaseClient().auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password,
       });
       if (error) throw error;
       if (!data.session) throw new Error('Sign-in did not return an active session.');
 
-      if (rememberMe) localStorage.setItem('niko-kadi-email', email.trim());
+      if (rememberMe) localStorage.setItem('niko-kadi-email', cleanEmail);
       else localStorage.removeItem('niko-kadi-email');
       onContinue();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not sign in.');
+      setStatus(friendlyAuthError(error, 'Could not sign in.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -77,7 +81,7 @@ export function SignInScreen({
       });
       if (error) throw error;
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Google sign-in is not available.');
+      setStatus(friendlyAuthError(error, 'Google sign-in is not available.'));
     }
   };
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import tableBackground from '../../images/Hardwood_card_table_in_room_20261009111309.jpg';
 import { getSupabaseClient } from '../lib/supabase';
+import { friendlyAuthError } from '../lib/authMessages';
 
 type CreateAccountScreenProps = {
   isMuted: boolean;
@@ -50,8 +51,13 @@ export function CreateAccountScreen({
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [status, setStatus] = useState('');
 
-  const hasValidEmail = EMAIL_PATTERN.test(email.trim());
-  const hasValidPhone = phone.replace(/\D/g, '').length >= 7;
+  // Emails are case-insensitive; use one consistent form everywhere.
+  const cleanEmail = email.trim().toLowerCase();
+  const hasValidEmail = EMAIL_PATTERN.test(cleanEmail);
+  // Local numbers are often typed with a leading 0 (0794...), which must be
+  // dropped before the country code is added.
+  const localPhoneDigits = phone.replace(/\D/g, '').replace(/^0+/, '');
+  const hasValidPhone = localPhoneDigits.length >= 7;
   const hasValidPassword = password.length >= 8;
   const passwordsMatch = password.length > 0 && password === confirmPassword;
   const isProfileLocked = verificationRequested || emailVerified;
@@ -84,7 +90,7 @@ export function CreateAccountScreen({
       return isAvailable;
     } catch (error) {
       setNicknameAvailability('error');
-      setStatus(error instanceof Error ? error.message : 'Could not check nickname availability.');
+      setStatus(friendlyAuthError(error, 'Could not check nickname availability.'));
       return false;
     }
   };
@@ -106,22 +112,24 @@ export function CreateAccountScreen({
     setIsSendingVerification(true);
     setStatus('');
     try {
-      if (!(await checkNicknameAvailability())) return;
+      // After the first signUp the profile row already holds this nickname, so
+      // only check availability before the first send, not when resending.
+      if (!verificationRequested && !(await checkNicknameAvailability())) return;
 
       const supabase = getSupabaseClient();
       if (verificationRequested) {
-        const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
+        const { error } = await supabase.auth.resend({ type: 'signup', email: cleanEmail });
         if (error) throw error;
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: cleanEmail,
           password,
           options: {
             data: {
               first_name: firstName.trim(),
               second_name: secondName.trim(),
               nickname: nickname.trim(),
-              phone: `${countryCode}${phone.replace(/\D/g, '')}`,
+              phone: `${countryCode}${localPhoneDigits}`,
               gender,
             },
           },
@@ -137,17 +145,19 @@ export function CreateAccountScreen({
       }
 
       setVerificationCode('');
-      setStatus(`A verification code was sent to ${email.trim()}. Check your inbox and spam folder.`);
+      setStatus(`A verification code was sent to ${cleanEmail}. Check your inbox and spam folder.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not send the verification email.');
+      setStatus(friendlyAuthError(error, 'Could not send the verification email.'));
     } finally {
       setIsSendingVerification(false);
     }
   };
 
   const handleConfirmCode = async () => {
-    if (!/^\d{6}$/.test(verificationCode)) {
-      setStatus('Enter the 6-digit code from your confirmation email.');
+    // Supabase lets the project choose the code length (6 to 10 digits), so
+    // accept any length in that range instead of exactly six.
+    if (!/^\d{6,10}$/.test(verificationCode)) {
+      setStatus('Enter the numeric code from your confirmation email.');
       return;
     }
 
@@ -155,7 +165,7 @@ export function CreateAccountScreen({
     setStatus('');
     try {
       const { data, error } = await getSupabaseClient().auth.verifyOtp({
-        email: email.trim(),
+        email: cleanEmail,
         token: verificationCode,
         type: 'signup',
       });
@@ -165,7 +175,7 @@ export function CreateAccountScreen({
       setEmailVerified(true);
       setStatus('Email verified. Your profile is ready.');
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not verify that code.');
+      setStatus(friendlyAuthError(error, 'Could not verify that code.', 'code'));
     } finally {
       setIsConfirmingCode(false);
     }
@@ -193,7 +203,7 @@ export function CreateAccountScreen({
 
       onAccountCreated();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not finish account creation.');
+      setStatus(friendlyAuthError(error, 'Could not finish account creation.'));
     } finally {
       setIsCreatingAccount(false);
     }
@@ -281,7 +291,9 @@ export function CreateAccountScreen({
                     setNicknameAvailability('idle');
                     setStatus('');
                   }}
-                  onBlur={() => void checkNicknameAvailability()}
+                  onBlur={() => {
+                    if (!isProfileLocked) void checkNicknameAvailability();
+                  }}
                   placeholder="Choose a nickname"
                   autoComplete="nickname"
                   disabled={isProfileLocked}
@@ -334,11 +346,11 @@ export function CreateAccountScreen({
                   <span className="sign-in-input-wrap">
                     <input
                       value={verificationCode}
-                      onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="6-digit code"
+                      onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="Verification code"
                       inputMode="numeric"
                       autoComplete="one-time-code"
-                      maxLength={6}
+                      maxLength={10}
                       aria-describedby="verification-code-note"
                     />
                   </span>
@@ -347,11 +359,11 @@ export function CreateAccountScreen({
                   className="create-account-confirm"
                   type="button"
                   onClick={handleConfirmCode}
-                  disabled={isConfirmingCode || verificationCode.length !== 6}
+                  disabled={isConfirmingCode || verificationCode.length < 6}
                 >
                   {isConfirmingCode ? 'Checking…' : 'Confirm code'}
                 </button>
-                <p id="verification-code-note">Enter the six-digit code from your confirmation email.</p>
+                <p id="verification-code-note">Enter the code from your confirmation email.</p>
               </div>
             )}
 
